@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Overlay Bidang Tanah</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#eef0ec;--card:#fff;--ink:#1d2421;--mut:#5d6862;--line:#d3d8d2;--map:#f7f8f5;--red:#c0392b;--bpn:#2563eb;--hut:#15803d;--rt:#d97706}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151a18;--card:#1e2522;--ink:#e6ebe7;--mut:#9aa6a0;--line:#34403b;--map:#18201d;--red:#ef6a5b;--bpn:#6b9bff;--hut:#4ade80;--rt:#fbbf24}}
+:root[data-theme="dark"]{--bg:#151a18;--card:#1e2522;--ink:#e6ebe7;--mut:#9aa6a0;--line:#34403b;--map:#18201d;--red:#ef6a5b;--bpn:#6b9bff;--hut:#4ade80;--rt:#fbbf24}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+main{max-width:1040px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:0 0 2px}h2{font-size:15px;margin:0 0 8px}
+p.sub{margin:0 0 14px;color:var(--mut)}
+a{color:var(--bpn)}
+.grid{display:grid;gap:12px;grid-template-columns:1fr}
+@media(min-width:860px){.grid{grid-template-columns:1.25fr 1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px}
+.row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.row:last-child{border:0}
+.sw{width:12px;height:12px;border-radius:2px;flex:none}
+.row b{font-weight:600}.row small{color:var(--mut)}
+.row label.f{margin-left:auto}
+input[type=file]{max-width:170px;font-size:12px}
+button,select{font:inherit;padding:7px 12px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--ink)}
+button.p{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:600}
+button:disabled{opacity:.5}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--bpn);outline-offset:2px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
+textarea{width:100%;height:90px;font:12px ui-monospace,monospace;background:var(--map);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:6px}
+svg{width:100%;height:auto;display:block;background:var(--map);border-radius:4px;border:1px solid var(--line)}
+.tg{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:13px}
+.tg label{display:flex;align-items:center;gap:4px}
+.pill{border-left:4px solid;padding:6px 10px;margin:6px 0;background:var(--map);border-radius:0 4px 4px 0;font-size:14px}
+.pill.d{border-color:var(--red)}.pill.w{border-color:var(--rt)}.pill.o{border-color:var(--hut)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{text-align:left;padding:5px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+td.n,th.n{text-align:right;white-space:nowrap}
+.wrap{overflow-x:auto}
+.bar2{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin:3px 0 8px}
+.bar2 i{display:block;height:100%}
+.note{font-size:12px;color:var(--mut);margin-top:10px}
+#msg{font-size:13px;color:var(--red);min-height:18px;margin-top:6px}
+
+/* ===== Kontrol zoom peta ===== */
+.mapw{position:relative}
+#map{touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.zc{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:4px}
+.zc button{width:34px;height:34px;padding:0;font-size:18px;line-height:1;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+
+/* ===== Unggah bidang tanah (drag & drop) ===== */
+[hidden]{display:none!important}
+.up{margin:10px 0 0}
+.up-btn{width:100%;background:var(--hut);color:#fff;border:0;border-bottom:4px solid rgba(0,0,0,.25);
+ border-radius:5px;padding:9px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;cursor:pointer;transition:filter .2s}
+.up-btn:hover{filter:brightness(1.1)}
+.up-btn:active{border-bottom-width:0;transform:translateY(2px)}
+.up-wrap{position:relative;margin-top:10px;border:3px dashed var(--hut);border-radius:6px;background:var(--map);transition:background .2s}
+.up-wrap:hover,.up-wrap.drop{background:color-mix(in srgb,var(--hut) 18%,var(--map))}
+.up-wrap input{position:absolute;inset:0;width:100%;height:100%;max-width:none;margin:0;padding:0;opacity:0;cursor:pointer}
+.up-text{text-align:center;padding:26px 10px;pointer-events:none}
+.up-text b{display:block;color:var(--hut);text-transform:uppercase;font-size:13px;font-weight:600}
+.up-text small{color:var(--mut)}
+.up-done{display:flex;align-items:center;gap:8px;justify-content:space-between;margin-top:10px;
+ padding:8px 10px;border:1px solid var(--line);border-left:4px solid var(--hut);border-radius:0 5px 5px 0;background:var(--map)}
+.up-done span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.up-rm{background:var(--red);color:#fff;border:0;border-bottom:3px solid rgba(0,0,0,.25);border-radius:5px;
+ padding:6px 12px;font-weight:600;cursor:pointer;flex:none}
+
+/* ===== Pop-up panduan ===== */
+#guide{border:1px solid var(--line);border-radius:10px;padding:0;background:var(--card);color:var(--ink);
+ width:min(520px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+#guide::backdrop{background:rgba(0,0,0,.5)}
+.g-in{padding:18px 18px 16px}
+.g-in h2{font-size:18px;margin:0 0 4px}
+.g-in .g-sub{margin:0 0 12px;color:var(--mut);font-size:13px}
+.g-steps{list-style:none;margin:0;padding:0;counter-reset:g}
+.g-steps li{counter-increment:g;position:relative;padding:8px 0 8px 38px;border-bottom:1px solid var(--line);font-size:14px}
+.g-steps li:last-child{border:0}
+.g-steps li::before{content:counter(g);position:absolute;left:0;top:8px;width:26px;height:26px;border-radius:50%;
+ background:var(--hut);color:#fff;font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center}
+.g-steps b{font-weight:600}
+.g-ok{width:100%;margin-top:14px;padding:10px;font-weight:600}
+
+/* ===== Loading spinner ===== */
+#busy{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;
+ gap:12px;background:rgba(0,0,0,.45);color:#fff;font-weight:600;font-size:14px}
+.spin{width:44px;height:44px;border:5px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;
+ animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2.4s}}
+@media print{#busy{display:none!important}}
+
+/* ===== Laporan cetak / PDF ===== */
+#report{display:none}
+#report .lg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin:6px 0 10px}
+#report .lg span{display:flex;align-items:center;gap:4px}
+@media print{
+ :root{--bg:#fff!important;--card:#fff!important;--ink:#000!important;--mut:#444!important;--line:#bbb!important;--map:#f4f4f0!important;--red:#c0392b!important;--bpn:#2563eb!important;--hut:#15803d!important;--rt:#d97706!important}
+ @page{size:A4;margin:12mm}
+ *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ body{background:#fff;font-size:12px}
+ main{display:none}
+ #guide{display:none!important}
+ #report{display:block}
+ #report img{width:100%;height:auto;border:1px solid #999;display:block}
+ #report .pill,#report tr,#report .bar2{break-inside:avoid}
+ #report h2{break-after:avoid}
+}
+</style>
+</head>
+<body>
+<main>
+<h1>Overlay Bidang Tanah</h1>
+<p class="sub">Analisis tumpang susun bidang tanah dengan tanah terdaftar BPN, Kawasan Hutan, dan Tata Ruang. · <a href="#" id="gHelp">Panduan penggunaan</a></p>
+<div class="grid">
+<div>
+ <div class="card">
+  <div class="tg" id="tg"></div>
+  <div class="mapw">
+   <svg id="map" viewBox="0 0 700 460" role="img" aria-label="Peta overlay"></svg>
+   <div class="zc">
+    <button id="zin" aria-label="Perbesar" title="Perbesar">+</button>
+    <button id="zout" aria-label="Perkecil" title="Perkecil">−</button>
+    <button id="zfit" aria-label="Tampilan awal" title="Tampilan awal">⤢</button>
+   </div>
+  </div>
+  <div class="note" id="scale"></div>
+ </div>
+</div>
+<div>
+ <div class="card">
+  <h2>Data</h2>
+  <div id="rows"></div>
+
+  <!-- Unggah bidang tanah: klik / seret & lepas -->
+  <div class="up">
+   <button type="button" class="up-btn" id="upBtn">Masukan file bidang tanah</button>
+   <div class="up-wrap" id="upWrap">
+    <input type="file" id="fp" accept=".json,.geojson" aria-label="Unggah bidang tanah">
+    <div class="up-text"><b>Seret &amp; lepas berkas GeoJSON</b><small>atau klik area ini (.geojson / .json)</small></div>
+   </div>
+   <div class="up-done" id="upDone" hidden>
+    <span>✔ <b id="upName"></b></span>
+    <button type="button" class="up-rm" id="upRm">Hapus</button>
+   </div>
+  </div>
+
+  <div class="bar"><button class="p" id="run">Jalankan analisis</button><button id="demo">Muat bidang contoh</button></div>
+  <details style="margin-top:10px"><summary>Tempel GeoJSON bidang tanah</summary>
+   <textarea id="ta" style="margin-top:8px" placeholder='{"type":"FeatureCollection","features":[...]}'></textarea>
+   <div class="bar"><button id="pb">Pakai teks ini</button></div>
+  </details>
+  <div id="msg"></div>
+ </div>
+ <div class="card" style="margin-top:12px" id="out"><h2>Hasil analisis</h2><p class="note">Unggah bidang tanah (atau muat bidang contoh), lalu jalankan analisis.</p></div>
+</div>
+</div>
+</main>
+
+<!-- Area laporan: hanya tampil saat mencetak -->
+<section id="report"></section>
+
+<!-- Loading spinner -->
+<div id="busy" hidden role="status" aria-live="polite">
+ <div class="spin"></div>
+ <span id="busyTxt">Memproses…</span>
+</div>
+
+<!-- Pop-up panduan (muncul saat pertama kali membuka halaman) -->
+<dialog id="guide" aria-labelledby="gTitle">
+ <div class="g-in">
+  <h2 id="gTitle">Panduan Penggunaan</h2>
+  <p class="g-sub">Ikuti 3 langkah berikut untuk menganalisis bidang tanah.</p>
+  <ol class="g-steps">
+   <li><b>Unggah bidang tanah</b> (format <b>.geojson</b>) yang ingin dianalisis, atau tempel skrip GeoJSON bidang tanah ke dalam web.</li>
+   <li>Tekan tombol <b>Jalankan analisis</b>. Web akan melakukan overlay bidang tanah yang diunggah dengan data <b>RTRW</b>, <b>Kawasan Hutan</b>, dan <b>Tanah Terdaftar BPN</b> yang telah disediakan admin melalui <a href="admin-data.html">halaman Admin</a>.</li>
+   <li>Hasil analisis dapat dicetak menjadi laporan berformat <b>PDF</b> dengan menekan tombol <b>Cetak / Simpan PDF</b> di bagian bawah halaman ini.</li>
+  </ol>
+  <button type="button" class="p g-ok" id="gOk">Mengerti, mulai</button>
+ </div>
+</dialog>
+
+<script>
+const L={parcel:{n:'Bidang tanah',c:'var(--red)'},bpn:{n:'Tanah terdaftar BPN',c:'var(--bpn)'},hutan:{n:'Kawasan Hutan',c:'var(--hut)'},rtrw:{n:'Tata Ruang (RTRW)',c:'var(--rt)'}};
+const REF=['bpn','hutan','rtrw'];
+const LC={red:'#c0392b',bpn:'#2563eb',hut:'#15803d',rt:'#d97706'};
+const lc=c=>c.startsWith('var(')?LC[c.slice(6,-1)]:c;
+const SAT_URL=(z,y,x)=>`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+const SAT_ATTR='Sumber Citra: Esri, Maxar, Earthstar Geographics, dan komunitas pengguna GIS';
+const VW=700,VH=460,SMAX=1.1e6;
+// meta: info berkas referensi dari halaman admin
+const S={d:{parcel:null,bpn:null,hutan:null,rtrw:null},meta:{},vis:{sat:1,bpn:1,hutan:1,rtrw:1},sel:0,res:null,ops:[],mpp:1,v:null,cur:null};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=n=>n.toLocaleString('id-ID',{maximumFractionDigits:1});
+const poly=(c,p)=>({type:'Feature',properties:p||{},geometry:{type:'Polygon',coordinates:[c]}});
+const bb=f=>f.__b||(f.__b=turf.bbox(f));                                     // bbox fitur (cache)
+const ov=(a,b)=>a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1];
+
+/* ===== Loading spinner ===== */
+let busyN=0;
+const nextPaint=()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));
+async function withBusy(txt,fn){
+ busyN++;$('busyTxt').textContent=txt;$('busy').hidden=false;
+ try{await nextPaint();return await fn()}
+ catch(e){$('msg').textContent='Gagal memproses: '+e.message}
+ finally{if(--busyN<=0){busyN=0;$('busy').hidden=true}}
+}
+
+/* ===== Penyimpanan (server, diisi dari admin-data.html lewat api.php) ===== */
+const API='api.php';
+const dbGet=async k=>{
+ const r=await fetch(`${API}?k=${k}`,{cache:'no-store'});
+ if(!r.ok)throw new Error('Server error '+r.status);
+ return r.json();                       // objek layer, atau null bila belum ada
+};
+async function loadRef(){
+ const hasil=await Promise.allSettled(REF.map(dbGet));
+ let err='';
+ REF.forEach((k,i)=>{
+  const h=hasil[i];
+  if(h.status==='fulfilled'&&h.value){S.d[k]=h.value.features;S.meta[k]={file:h.value.file,updated:h.value.updated}}
+  else{S.d[k]=null;S.meta[k]=null;if(h.status==='rejected')err='Gagal memuat data dari server: '+h.reason.message}
+ });
+ if(err)$('msg').textContent=err;
+}
+async function refresh(){                                                     // dipanggil saat tab kembali aktif
+ const before=JSON.stringify(S.meta);await loadRef();
+ if(JSON.stringify(S.meta)===before)return;
+ rows();if(S.d.parcel)analyze();else draw();
+}
+
+function demo(){
+ S.d.parcel=[poly([[106.8000,-6.6000],[106.8030,-6.6003],[106.8028,-6.6022],[106.8004,-6.6020],[106.8000,-6.6000]],{nama:'Bidang A (pemohon)'})];
+ S.sel=0;S.v=null;rows();analyze();
+ setUp('Bidang contoh');
+}
+function parse(t){
+ const j=JSON.parse(t);let f=j.type==='FeatureCollection'?j.features:j.type==='Feature'?[j]:[{type:'Feature',properties:{},geometry:j}];
+ const o=[];f.forEach(x=>{if(!x||!x.geometry)return;const g=x.geometry.type;
+  if(g==='Polygon')o.push(x);else if(g==='MultiPolygon')o.push(x);});
+ if(!o.length)throw new Error('Tidak ada geometri Polygon/MultiPolygon.');
+ const b=turf.bbox({type:'FeatureCollection',features:o});
+ if(Math.abs(b[0])>180||Math.abs(b[1])>90)throw new Error('Koordinat bukan lon/lat (EPSG:4326). Reproyeksi dahulu ke WGS84.');
+ return o;
+}
+function lab(p){p=p||{};for(const k of ['nama','NAMA','fungsi','FUNGSIKWS','POLA_RUANG','pola_ruang','NIB','nib'])if(p[k])return p[k];
+ const v=Object.values(p).find(x=>typeof x==='string');return v||'(tanpa atribut)'}
+function load(t){try{S.d.parcel=parse(t);S.sel=0;S.v=null;$('msg').textContent='';rows();analyze()}catch(e){$('msg').textContent=L.parcel.n+': '+e.message}}
+function rows(){
+ const tgl=m=>new Date(m).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'});
+ let h=`<div class="row"><span class="sw" style="background:${L.parcel.c}"></span><b>${L.parcel.n}</b> <small>${S.d.parcel?S.d.parcel.length+' fitur':'belum ada'}</small></div>`;
+ h+=REF.map(k=>{const m=S.meta[k];return `<div class="row"><span class="sw" style="background:${L[k].c}"></span><b>${L[k].n}</b> <small>${S.d[k]?S.d[k].length+' fitur · '+esc(m.file||'teks tempel')+' · '+tgl(m.updated):'belum diunggah oleh Admin'}</small></div>`}).join('');
+ h+=`<p class="note" style="margin:8px 0 0">Data referensi diunggah di <a href="admin-data.html">halaman Kelola Data</a>.</p>`;
+ $('rows').innerHTML=h;
+}
+function ov2(){return 0}
+const analyze=()=>withBusy('Menganalisis overlay…',analyzeNow);
+function analyzeNow(){
+ if(!S.d.parcel){$('msg').textContent='Muat bidang tanah terlebih dahulu.';return}
+ if(!REF.some(k=>S.d[k]))$('msg').innerHTML='Data referensi belum ada. Unggah dulu di <a href="admin-data.html">halaman Kelola Data</a>.';else $('msg').textContent='';
+ const out=S.d.parcel.map(pf=>{
+  const flat=turf.flatten(pf).features,area=turf.area(pf),pb=bb(pf),r={name:lab(pf.properties),area,lay:{}};
+  REF.forEach(k=>{
+   const items=[];let u=null;
+   (S.d[k]||[]).forEach(f=>{if(!ov(bb(f),pb))return;                           // lewati fitur yang jauh dari bidang
+    flat.forEach(pp=>{let x=null;try{const ff=turf.flatten(f).features;ff.forEach(g=>{const i=turf.intersect(pp,g);if(i){x=x?turf.union(x,i):i}})}catch(e){}
+    if(x){const a=turf.area(x);if(a>0.5){items.push({label:lab(f.properties),ket:(f.properties||{}).ket||'',a,pct:Math.min(100,a/area*100),g:x,k});try{u=u?turf.union(u,x):x}catch(e){}}}})});
+   r.lay[k]={items,total:u?Math.min(area,turf.area(u)):0};
+  });
+  return r});
+ S.res=out;if(S.sel>=out.length)S.sel=0;draw();show();
+}
+function show(){
+ const r=S.res[S.sel];const sel=S.res.length>1?`<select id="sp" aria-label="Pilih bidang">${S.res.map((x,i)=>`<option value="${i}"${i==S.sel?' selected':''}>${esc(x.name)}</option>`).join('')}</select>`:'';
+ const P=k=>r.lay[k].total/r.area*100;
+ let pills='';
+ pills+=r.lay.hutan.items.length?`<div class="pill d">Berimpit dengan Kawasan Hutan seluas ${fmt(r.lay.hutan.total)} m² (${fmt(P('hutan'))}%). Perlu penelaahan status kawasan.</div>`:`<div class="pill ${S.d.hutan?'o':'w'}">${S.d.hutan?'Tidak berimpit dengan Kawasan Hutan.':'Data Kawasan Hutan belum diunggah.'}</div>`;
+ pills+=r.lay.bpn.items.length?`<div class="pill w">Berimpit dengan ${r.lay.bpn.items.length} bidang terdaftar BPN (${fmt(P('bpn'))}% luas bidang). Cek tumpang tindih hak.</div>`:`<div class="pill ${S.d.bpn?'o':'w'}">${S.d.bpn?'Tidak berimpit dengan tanah terdaftar BPN.':'Data tanah terdaftar BPN belum diunggah oleh Admin.'}</div>`;
+ const un=100-P('rtrw');
+ pills+=r.lay.rtrw.items.length?`<div class="pill ${un>1?'w':'o'}">Pola ruang tercakup ${fmt(P('rtrw'))}% dari luas bidang${un>1?`; ${fmt(un)}% di luar data RTRW`:''}.</div>`:`<div class="pill w">${S.d.rtrw?'Tidak ada data pola ruang yang memotong bidang.':'Data RTRW belum diunggah.'}</div>`;
+ let h=`<h2>Hasil analisis</h2>${sel}<p style="margin:8px 0"><b>${esc(r.name)}</b> · luas ${fmt(r.area)} m² (${fmt(r.area/10000)} ha)</p>${pills}`;
+ REF.forEach(k=>{const v=r.lay[k];
+  h+=`<h2 style="margin-top:14px"><span class="sw" style="background:${L[k].c};display:inline-block;margin-right:6px"></span>${L[k].n}</h2><div class="bar2"><i style="width:${P(k)}%;background:${L[k].c}"></i></div>`;
+  h+=v.items.length?`<div class="wrap"><table><tr><th>Objek</th><th class="n">m²</th><th class="n">%</th></tr>${v.items.map(i=>`<tr><td>${esc(i.label)}${i.ket?`<br><small style="color:var(--mut)">${esc(i.ket)}</small>`:''}</td><td class="n">${fmt(i.a)}</td><td class="n">${fmt(i.pct)}</td></tr>`).join('')}</table></div>`:'<p class="note" style="margin:0">Tidak ada irisan.</p>';
+ });
+ h+='<p class="note">Luas dihitung geodesik pada WGS84. Persentase gabungan menghitung irisan yang saling tumpang hanya sekali. Hasil bersifat indikatif dan perlu diverifikasi dengan data resmi.</p>';
+ h+='<div class="bar"><button class="p" id="pdf">Cetak / Simpan PDF</button></div>';
+ $('out').innerHTML=h;
+ const sp=$('sp');if(sp)sp.onchange=()=>{S.sel=+sp.value;draw();show()};
+ $('pdf').onclick=cetak;
+}
+
+/* ===== Tile citra satelit Esri (Web Mercator, XYZ) ===== */
+function tileOps(b,c,s,ox,oy,pj){
+ const lonSpan=VW/(c*s),latSpan=VH/s;
+ const lon0=b[0]-ox/(c*s),lon1=lon0+lonSpan,lat1=b[3]+oy/s,lat0=lat1-latSpan;
+ let z=Math.ceil(Math.log2(VW*1.5*360/(256*lonSpan)));z=Math.max(1,Math.min(18,z));
+ const n=2**z,X=lon=>(lon+180)/360*n;
+ const Y=lat=>{const r=Math.max(-85,Math.min(85,lat))*Math.PI/180;return(1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*n};
+ const x0=Math.floor(X(lon0)),x1=Math.floor(X(lon1)),y0=Math.floor(Y(lat1)),y1=Math.floor(Y(lat0));
+ if((x1-x0+1)*(y1-y0+1)>100)return [];
+ const lo=x=>x/n*360-180,la=y=>Math.atan(Math.sinh(Math.PI*(1-2*y/n)))*180/Math.PI;
+ const o=[];
+ for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){
+  if(x<0||x>=n||y<0||y>=n)continue;
+  const a=pj([lo(x),la(y)]),d=pj([lo(x+1),la(y+1)]);
+  o.push({t:'img',u:SAT_URL(z,y,x),x:+a[0],y:+a[1],w:d[0]-a[0],h:d[1]-a[1]});
+ }
+ return o;
+}
+
+function draw(){
+ T={k:1,tx:0,ty:0};clearTimeout(tm);
+ // Tampilan awal: pas ke bidang tanah; bila belum ada, pas ke layer referensi yang aktif
+ const all=S.d.parcel?[...S.d.parcel]:[];
+ if(!all.length)REF.forEach(k=>{if(S.d[k]&&S.vis[k])all.push(...S.d[k])});
+ $('tg').innerHTML=`<label><input type="checkbox" data-k="sat"${S.vis.sat?' checked':''}>Citra satelit Esri</label>`+
+  REF.map(k=>`<label><input type="checkbox" data-k="${k}"${S.vis[k]?' checked':''}><span class="sw" style="background:${L[k].c}"></span>${L[k].n}</label>`).join('')+
+  `<label><span class="sw" style="background:var(--red)"></span>Bidang tanah</label>`;
+ $('tg').querySelectorAll('input').forEach(i=>i.onchange=()=>{S.vis[i.dataset.k]=i.checked?1:0;draw()});
+ const svg=$('map');S.ops=[];S.cur=null;
+ if(!all.length){svg.innerHTML='<text x="350" y="230" text-anchor="middle" fill="var(--mut)">Belum ada data. Unggah bidang tanah.</text>';return}
+ const b=turf.bbox({type:'FeatureCollection',features:all});const c=Math.cos((b[1]+b[3])/2*Math.PI/180);
+ const pad=24,dx=Math.max((b[2]-b[0])*c,1e-9),dy=Math.max(b[3]-b[1],1e-9),s0=Math.min((VW-2*pad)/dx,(VH-2*pad)/dy);
+ const v=S.v||{cx:(b[0]+b[2])/2,cy:(b[1]+b[3])/2,s:s0};
+ const s=v.s;S.cur={cx:v.cx,cy:v.cy,s,c,s0};
+ const pj=p=>[(VW/2+(p[0]-v.cx)*c*s).toFixed(1),(VH/2+(v.cy-p[1])*s).toFixed(1)];
+ const path=g=>{const polys=g.type==='Polygon'?[g.coordinates]:g.coordinates;return polys.map(pl=>pl.map(r=>'M'+r.map(pj).join('L')+'Z').join('')).join('')};
+ // area pandang + margin, agar data referensi besar tidak digambar seluruhnya
+ const hx=VW/(c*s),hy=VH/s,vb=[v.cx-hx,v.cy-hy,v.cx+hx,v.cy+hy];
+ const ops=[];
+ if(S.vis.sat)ops.push(...tileOps([v.cx-VW/(2*c*s),0,0,v.cy+VH/(2*s)],c,s,0,0,pj));
+ const fo=S.vis.sat?.3:.16;
+ ['rtrw','hutan','bpn'].forEach(k=>{if(S.vis[k]&&S.d[k])S.d[k].forEach(f=>{if(!ov(bb(f),vb))return;ops.push({t:'p',d:path(f.geometry),fill:L[k].c,fo,stroke:L[k].c,sw:1.4,title:L[k].n+': '+lab(f.properties)})})});
+ if(S.res){const r=S.res[S.sel];['rtrw','hutan','bpn'].forEach(k=>{if(S.vis[k])r.lay[k].items.forEach(i=>ops.push({t:'p',d:path(i.g.geometry),fill:L[k].c,fo:.5,stroke:'none',sw:0,title:''}))})}
+ (S.d.parcel||[]).forEach((f,i)=>ops.push({t:'p',d:path(f.geometry),fill:'none',fo:0,stroke:'var(--red)',sw:i==S.sel?3:1.5,dash:i==S.sel?'':'5 3',title:lab(f.properties)}));
+ S.ops=ops;S.mpp=111320/s;
+ svg.innerHTML='<g id="vp">'+ops.map(o=>o.t=='img'
+  ?`<image href="${o.u}" x="${o.x}" y="${o.y}" width="${o.w+.6}" height="${o.h+.6}" preserveAspectRatio="none"/>`
+  :`<path d="${o.d}" fill="${o.fill}" fill-opacity="${o.fo}" stroke="${o.stroke}" stroke-width="${o.sw}"${o.dash?` stroke-dasharray="${o.dash}"`:''} fill-rule="evenodd"><title>${esc(o.title)}</title></path>`).join('')+'</g>';
+ const wm=VW/s*111320;
+ $('scale').textContent='Lebar peta ± '+fmt(wm)+' m · proyeksi equirectangular'+(S.vis.sat?' · '+SAT_ATTR:', tanpa peta dasar');
+}
+
+/* ===== Zoom & geser peta ===== */
+let T={k:1,tx:0,ty:0},tm;
+const mw=$('map');
+const applyT=()=>{const g=$('vp');if(g)g.setAttribute('transform',`translate(${T.tx.toFixed(2)} ${T.ty.toFixed(2)}) scale(${T.k})`)};
+function zoomT(f,px,py){
+ const q=S.cur;if(!q)return;
+ const nk=Math.min(Math.max(T.k*f,q.s0*0.3/q.s),SMAX/q.s);f=nk/T.k;
+ T.tx=px-(px-T.tx)*f;T.ty=py-(py-T.ty)*f;T.k=nk;
+}
+function commit(){
+ clearTimeout(tm);const q=S.cur;
+ if(!q||(T.k===1&&!T.tx&&!T.ty))return;
+ const x=(VW/2-T.tx)/T.k,y=(VH/2-T.ty)/T.k;
+ S.v={cx:q.cx+(x-VW/2)/(q.c*q.s),cy:q.cy-(y-VH/2)/q.s,s:q.s*T.k};
+ draw();
+}
+const pos=e=>{const r=mw.getBoundingClientRect();return[(e.clientX-r.left)/r.width*VW,(e.clientY-r.top)/r.height*VH]};
+const mid=a=>a.length>1?[(a[0][0]+a[1][0])/2,(a[0][1]+a[1][1])/2]:a[0];
+const dist=a=>Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);
+const PT=new Map();
+mw.addEventListener('wheel',e=>{
+ if(!S.cur)return;e.preventDefault();
+ const [x,y]=pos(e);zoomT(Math.exp(-Math.max(-100,Math.min(100,e.deltaY))*0.002),x,y);applyT();
+ clearTimeout(tm);tm=setTimeout(commit,200);
+},{passive:false});
+mw.addEventListener('pointerdown',e=>{if(!S.cur)return;mw.setPointerCapture(e.pointerId);PT.set(e.pointerId,pos(e));mw.style.cursor='grabbing'});
+mw.addEventListener('pointermove',e=>{
+ if(!PT.has(e.pointerId))return;
+ const o=[...PT.values()];PT.set(e.pointerId,pos(e));const n=[...PT.values()];
+ if(n.length===1){T.tx+=n[0][0]-o[0][0];T.ty+=n[0][1]-o[0][1]}
+ else{const m0=mid(o),m1=mid(n),d0=dist(o),d1=dist(n);T.tx+=m1[0]-m0[0];T.ty+=m1[1]-m0[1];if(d0>0)zoomT(d1/d0,m1[0],m1[1])}
+ applyT();
+});
+const endP=e=>{if(!PT.delete(e.pointerId))return;if(!PT.size){mw.style.cursor='grab';commit()}};
+mw.addEventListener('pointerup',endP);mw.addEventListener('pointercancel',endP);
+mw.addEventListener('dblclick',e=>{if(!S.cur)return;const [x,y]=pos(e);zoomT(2,x,y);commit()});
+$('zin').onclick=()=>{zoomT(1.6,VW/2,VH/2);commit()};
+$('zout').onclick=()=>{zoomT(1/1.6,VW/2,VH/2);commit()};
+$('zfit').onclick=()=>{S.v=null;draw()};
+
+/* ===== Render peta ke canvas (untuk PDF) ===== */
+async function renderCanvas(k,skipTiles){
+ const cv=document.createElement('canvas');cv.width=VW*k;cv.height=VH*k;
+ const g=cv.getContext('2d');g.fillStyle='#f7f8f5';g.fillRect(0,0,cv.width,cv.height);g.scale(k,k);
+ let fail=0;
+ if(!skipTiles){
+  const imgs=await Promise.all(S.ops.filter(o=>o.t=='img').map(o=>new Promise(res=>{
+   const i=new Image();i.crossOrigin='anonymous';i.onload=()=>res([o,i]);i.onerror=()=>res([o,null]);i.src=o.u})));
+  imgs.forEach(([o,i])=>{if(i)g.drawImage(i,o.x,o.y,o.w+.6,o.h+.6);else fail++});
+ }
+ S.ops.filter(o=>o.t=='p').forEach(o=>{
+  const p=new Path2D(o.d);
+  if(o.fill!=='none'){g.globalAlpha=o.fo;g.fillStyle=lc(o.fill);g.fill(p,'evenodd');g.globalAlpha=1}
+  if(o.stroke!=='none'){g.strokeStyle=lc(o.stroke);g.lineWidth=o.sw;g.setLineDash(o.dash?o.dash.split(' ').map(Number):[]);g.stroke(p);g.setLineDash([])}
+ });
+ const nice=[1,2,5,10,20,50,100,200,500,1000,2000,5000,10000,20000,50000,100000];
+ let m=nice[0];nice.forEach(v=>{if(v/S.mpp<=150)m=v});
+ const px=m/S.mpp,x=14,y=VH-18;
+ g.fillStyle='rgba(255,255,255,.85)';g.fillRect(x-6,y-18,px+64,30);
+ g.fillStyle='#000';g.fillRect(x,y,px,3);g.fillRect(x,y-4,1.5,7);g.fillRect(x+px-1.5,y-4,1.5,7);
+ g.font='11px sans-serif';g.textBaseline='bottom';g.fillText(m>=1000?(m/1000)+' km':m+' m',x,y-4);
+ g.fillStyle='rgba(255,255,255,.85)';g.fillRect(VW-34,10,24,34);
+ g.fillStyle='#000';g.font='bold 12px sans-serif';g.textAlign='center';g.fillText('U',VW-22,26);
+ g.beginPath();g.moveTo(VW-22,29);g.lineTo(VW-27,40);g.lineTo(VW-22,37);g.lineTo(VW-17,40);g.closePath();g.fill();
+ if(S.vis.sat&&!skipTiles){
+  g.font='10px sans-serif';g.textAlign='right';g.textBaseline='bottom';
+  const w=g.measureText(SAT_ATTR).width;
+  g.fillStyle='rgba(255,255,255,.8)';g.fillRect(VW-w-12,VH-16,w+12,16);
+  g.fillStyle='#000';g.fillText(SAT_ATTR,VW-6,VH-4);
+ }
+ return{cv,fail};
+}
+
+/* ===== Cetak / simpan PDF ===== */
+async function cetak(){
+ if(!S.res){$('msg').textContent='Jalankan analisis terlebih dahulu.';return}
+ commit();
+ const btn=$('pdf');btn.disabled=true;btn.textContent='Menyiapkan peta…';
+ try{
+  let {cv,fail}=await renderCanvas(2,false),url;
+  try{url=cv.toDataURL('image/png')}
+  catch(e){({cv,fail}=await renderCanvas(2,true));url=cv.toDataURL('image/png');fail=-1}
+  const r=S.res[S.sel];
+  const clone=$('out').cloneNode(true);
+  clone.querySelectorAll('select,#pdf,.bar').forEach(e=>e.remove());
+  const lg=REF.filter(k=>S.vis[k]&&S.d[k]).map(k=>`<span><i class="sw" style="background:${lc(L[k].c)};display:inline-block"></i>${L[k].n}</span>`).join('')
+   +`<span><i style="display:inline-block;width:16px;border-top:3px solid ${LC.red}"></i>Bidang tanah</span>`;
+  const tgl=new Date().toLocaleString('id-ID',{dateStyle:'long',timeStyle:'short'});
+  $('report').innerHTML=`<h1>Laporan Overlay Bidang Tanah</h1><p class="sub">${esc(r.name)} · dicetak ${esc(tgl)}</p>
+   <img alt="Peta overlay" src="${url}"><div class="lg">${lg}</div>${clone.innerHTML}
+   ${fail!==0?`<p class="note">Catatan: ${fail<0?'citra satelit tidak dapat disertakan (pembatasan CORS)':fail+' tile citra gagal dimuat'}.</p>`:''}`;
+  const im=$('report').querySelector('img');try{await im.decode()}catch(e){}
+  const old=document.title;document.title='Overlay - '+r.name;
+  window.addEventListener('afterprint',()=>{document.title=old},{once:true});
+  $('msg').textContent='';
+  setTimeout(()=>window.print(),150);
+ }catch(e){$('msg').textContent='Gagal menyiapkan PDF: '+e.message}
+ finally{const b2=$('pdf');if(b2){b2.disabled=false;b2.textContent='Cetak / Simpan PDF'}}
+}
+
+/* ===== Unggah bidang tanah: klik / seret & lepas ===== */
+const upWrap=$('upWrap'),upDone=$('upDone'),fp=$('fp');
+function setUp(nama){                       // tampilkan status berkas terunggah
+ $('upName').textContent=nama;upWrap.hidden=true;upDone.hidden=false;$('upBtn').hidden=true;
+}
+function bacaFile(f){
+ if(!f)return;
+ const before=S.d.parcel,r=new FileReader();
+ r.onload=()=>{load(r.result);if(S.d.parcel&&S.d.parcel!==before)setUp(f.name)};
+ r.readAsText(f);
+}
+fp.onchange=e=>{bacaFile(e.target.files[0]);fp.value=''};
+$('upBtn').onclick=()=>fp.click();
+['dragenter','dragover'].forEach(t=>upWrap.addEventListener(t,e=>{e.preventDefault();upWrap.classList.add('drop')}));
+['dragleave','drop'].forEach(t=>upWrap.addEventListener(t,e=>{e.preventDefault();upWrap.classList.remove('drop')}));
+upWrap.addEventListener('drop',e=>bacaFile(e.dataTransfer.files[0]));
+$('upRm').onclick=()=>{
+ S.d.parcel=null;S.res=null;S.sel=0;S.v=null;$('msg').textContent='';
+ upWrap.hidden=false;upDone.hidden=true;$('upBtn').hidden=false;
+ $('out').innerHTML='<h2>Hasil analisis</h2><p class="note">Unggah bidang tanah (atau muat bidang contoh), lalu jalankan analisis.</p>';
+ rows();draw();
+};
+
+/* ===== Pop-up panduan: tampil sekali saat pertama kali membuka halaman ===== */
+const GKEY='overlay_panduan_v1',dlg=$('guide');
+const gSeen=()=>{try{return localStorage.getItem(GKEY)}catch(e){return null}};
+const gMark=()=>{try{localStorage.setItem(GKEY,'1')}catch(e){}};
+function openGuide(){dlg.showModal?dlg.showModal():dlg.setAttribute('open','')}
+$('gOk').onclick=()=>dlg.close();
+dlg.addEventListener('close',gMark);                       // Esc, klik tombol, atau ditutup cara lain
+dlg.addEventListener('click',e=>{if(e.target===dlg)dlg.close()});   // klik area gelap = tutup
+$('gHelp').onclick=e=>{e.preventDefault();openGuide()};
+if(!gSeen())openGuide();
+
+$('run').onclick=analyze;$('demo').onclick=demo;
+$('pb').onclick=()=>{const t=$('ta').value.trim();if(t)load(t);if(S.d.parcel&&t)setUp('GeoJSON dari teks')};
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
+(async()=>{await withBusy('Memuat data referensi…',loadRef);rows();draw()})();
+</script>
+</body>
+</html>

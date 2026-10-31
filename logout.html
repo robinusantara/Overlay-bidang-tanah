@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <script>
+    // Jika halaman ini dimuat di dalam iframe, pindahkan seluruh jendela
+    if (window.top !== window.self) {
+      window.top.location.href = window.location.href;
+    }
+  </script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Kelola Data Referensi</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
+  <style>
+    :root {
+      --bg: #eef0ec;
+      --card: #fff;
+      --ink: #1d2421;
+      --mut: #5d6862;
+      --line: #d3d8d2;
+      --map: #f7f8f5;
+      --red: #c0392b;
+      --bpn: #2563eb;
+      --hut: #15803d;
+      --rt: #d97706;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #151a18;
+        --card: #1e2522;
+        --ink: #e6ebe7;
+        --mut: #9aa6a0;
+        --line: #34403b;
+        --map: #18201d;
+        --red: #ef6a5b;
+        --bpn: #6b9bff;
+        --hut: #4ade80;
+        --rt: #fbbf24;
+      }
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.5 "IBM Plex Sans", system-ui, sans-serif;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    /* Header & Navigation Styles */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 4px;
+      gap: 12px;
+    }
+    h1 { font-size: 22px; margin: 0; }
+    h2 { font-size: 15px; margin: 0; }
+    p.sub { margin: 0 0 14px; color: var(--mut); }
+
+    a { color: var(--bpn); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Logout Button Styling */
+    .btn-logout {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--red);
+      background: transparent;
+      border: 1px solid var(--red);
+      border-radius: 5px;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .btn-logout:hover {
+      background: var(--red);
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+    .hd { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .sw { width: 12px; height: 12px; border-radius: 2px; flex: none; }
+    .st { font-size: 13px; color: var(--mut); margin: 4px 0 8px; }
+    .st b { color: var(--ink); font-weight: 600; }
+    .ok { color: var(--hut); }
+    .act { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    input[type=file] { max-width: 230px; font-size: 12px; }
+    button, select { font: inherit; padding: 7px 12px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); color: var(--ink); cursor: pointer; }
+    button.p { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 600; }
+    button.d { color: var(--red); }
+    button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, .btn-logout:focus-visible { outline: 2px solid var(--bpn); outline-offset: 2px; }
+    textarea { width: 100%; height: 90px; font: 12px ui-monospace, monospace; background: var(--map); color: var(--ink); border: 1px solid var(--line); border-radius: 5px; padding: 6px; }
+    .note { font-size: 12px; color: var(--mut); margin-top: 8px; }
+    #msg { font-size: 13px; min-height: 18px; margin: 6px 0; color: var(--red); }
+    #msg.g { color: var(--hut); }
+
+    /* Loading spinner */
+    #busy {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: rgba(0,0,0,.45);
+      color: #fff;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .spin {
+      width: 44px;
+      height: 44px;
+      border: 5px solid rgba(255,255,255,.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }
+  </style>
+</head>
+<body>
+
+<main>
+  <div class="header-bar">
+    <h1>Kelola Data Referensi</h1>
+    <a href="https://www.authpro.com/auth/cekoverlay/?action=logout" class="btn-logout">Logout</a>
+  </div>
+  <p class="sub">Unggah data di halaman ini. Halaman <a href="index.html">Overlay Bidang Tanah</a> akan menampilkannya otomatis.</p>
+
+  <div id="msg" role="status"></div>
+  <div id="list"></div>
+
+  <div class="card">
+    <h2>Tempel GeoJSON</h2>
+    <div class="act" style="margin:8px 0"><select id="ps" aria-label="Layer tujuan"></select></div>
+    <textarea id="ta" placeholder='{"type":"FeatureCollection","features":[...]}'></textarea>
+    <div class="act" style="margin-top:8px"><button id="pb">Simpan teks ini</button></div>
+  </div>
+
+  <div class="card">
+    <div class="act">
+      <button id="demo">Isi data contoh</button>
+      <button class="d" id="clr">Hapus semua data</button>
+      <a href="index.html" style="margin-left:auto">Buka halaman peta →</a>
+    </div>
+    <p class="note">Data disimpan di server hostinger.com. Format: GeoJSON Polygon/MultiPolygon, WGS84 (EPSG:4326). Atribut yang dipakai sebagai nama objek: <code>nama</code>, <code>fungsi</code>, <code>FUNGSIKWS</code>, <code>POLA_RUANG</code>, <code>NIB</code> (atau atribut teks pertama). Atribut <code>ket</code> tampil sebagai keterangan.</p>
+  </div>
+</main>
+
+<!-- Loading spinner -->
+<div id="busy" hidden role="status" aria-live="polite">
+  <div class="spin"></div>
+  <span id="busyTxt">Memproses…</span>
+</div>
+
+<script>
+const K={bpn:{n:'Tanah terdaftar BPN',c:'var(--bpn)'},hutan:{n:'Kawasan Hutan',c:'var(--hut)'},rtrw:{n:'Tata Ruang (RTRW)',c:'var(--rt)'}};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=n=>n.toLocaleString('id-ID',{maximumFractionDigits:1});
+const poly=(c,p)=>({type:'Feature',properties:p||{},geometry:{type:'Polygon',coordinates:[c]}});
+const rect=(a,b,c,d,p)=>poly([[a,b],[c,b],[c,d],[a,d],[a,b]],p);
+
+/* ===== Loading spinner ===== */
+let busyN=0;
+const nextPaint=()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));
+async function withBusy(txt,fn){
+  busyN++;$('busyTxt').textContent=txt;$('busy').hidden=false;
+  try{await nextPaint();return await fn()}
+  catch(e){msg('Gagal memproses: '+e.message)}
+  finally{if(--busyN<=0){busyN=0;$('busy').hidden=true}}
+}
+
+/* ===== Penyimpanan (server, via api.php) ===== */
+const API='api.php';
+const tok=()=>sessionStorage.tok||(sessionStorage.tok=prompt('Password admin:')||'');
+const dbGet=async k=>{
+  const r=await fetch(`${API}?k=${k}`,{cache:'no-store'});
+  if(!r.ok)throw new Error('Server error '+r.status);
+  return r.json();
+};
+const send=async(url,body)=>{
+  const r=await fetch(url,{method:'POST',headers:{'X-Token':tok()},body});
+  if(r.status===401){delete sessionStorage.tok;throw new Error('Password salah.')}
+  if(r.status===413)throw new Error('Berkas terlalu besar untuk server.');
+  if(!r.ok)throw new Error('Gagal menyimpan ('+r.status+')');
+};
+const dbPut=(k,v)=>send(`${API}?k=${k}`,JSON.stringify(v));
+const dbDel=k=>send(`${API}?k=${k}&del=1`,'');
+
+function parse(t){
+  const j=JSON.parse(t);const f=j.type==='FeatureCollection'?j.features:j.type==='Feature'?[j]:[{type:'Feature',properties:{},geometry:j}];
+  const o=(f||[]).filter(x=>x&&x.geometry&&(x.geometry.type==='Polygon'||x.geometry.type==='MultiPolygon'));
+  if(!o.length)throw new Error('Tidak ada geometri Polygon/MultiPolygon.');
+  const b=turf.bbox({type:'FeatureCollection',features:o});
+  if(!b.every(isFinite)||Math.abs(b[0])>180||Math.abs(b[2])>180||Math.abs(b[1])>90||Math.abs(b[3])>90)throw new Error('Koordinat bukan lon/lat (EPSG:4326). Reproyeksi dahulu ke WGS84.');
+  return{features:o,bbox:b};
+}
+function msg(t,ok){const m=$('msg');m.textContent=t;m.className=ok?'g':''}
+
+const simpan=(k,text,file)=>withBusy('Menyimpan '+K[k].n+'…',async()=>{
+  try{
+   const {features,bbox}=parse(text);
+   await dbPut(k,{features,bbox,file,size:text.length,updated:Date.now()});
+   msg(K[k].n+': '+features.length+' fitur tersimpan.',1);
+  }catch(e){msg(K[k].n+': '+(e.name==='QuotaExceededError'?'penyimpanan browser penuh.':e.message))}
+  await renderNow();
+});
+
+async function renderNow(){
+  let h='';
+  for(const k of Object.keys(K)){
+   let r=null;try{r=await dbGet(k)}catch(e){msg('Penyimpanan browser tidak tersedia: '+e.message)}
+   const st=r?`<span class="ok">●</span> <b>${r.features.length}</b> fitur · ${esc(r.file||'teks tempel')} · ${fmt(r.size/1024)} KB<br>Cakupan: ${r.bbox.map(v=>v.toFixed(4)).join(', ')} · diperbarui ${new Date(r.updated).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'})}`:'Belum ada data.';
+   h+=`<div class="card"><div class="hd"><span class="sw" style="background:${K[k].c}"></span><h2>${K[k].n}</h2></div><div class="st">${st}</div>
+    <div class="act"><input type="file" accept=".json,.geojson" data-k="${k}" aria-label="Unggah ${K[k].n}">${r?`<button class="d" data-del="${k}">Hapus</button>`:''}</div></div>`;
+  }
+  $('list').innerHTML=h;
+  $('list').querySelectorAll('input[type=file]').forEach(i=>i.onchange=()=>{const f=i.files[0];if(!f)return;msg('Membaca '+f.name+'…',1);const r=new FileReader();r.onload=()=>simpan(i.dataset.k,r.result,f.name);r.onerror=()=>msg('Gagal membaca berkas.');r.readAsText(f)});
+  $('list').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.del;
+    if(!confirm('Hapus '+K[k].n+'?'))return;
+    withBusy('Menghapus '+K[k].n+'…',async()=>{await dbDel(k);msg(K[k].n+' dihapus.',1);await renderNow()});
+  });
+}
+const render=()=>withBusy('Memuat data…',renderNow);
+
+$('ps').innerHTML=Object.keys(K).map(k=>`<option value="${k}">${K[k].n}</option>`).join('');
+$('pb').onclick=()=>{const t=$('ta').value.trim();if(t)simpan($('ps').value,t,null)};
+$('clr').onclick=()=>{
+  if(!confirm('Hapus semua data referensi?'))return;
+  withBusy('Menghapus semua data…',async()=>{for(const k of Object.keys(K))await dbDel(k);msg('Semua data dihapus.',1);await renderNow()});
+};
+$('demo').onclick=()=>withBusy('Menyimpan data contoh…',async()=>{
+  const D={
+   bpn:[rect(106.7990,-6.5995,106.8015,-6.6025,{nama:'NIB 10.12.05.01.00123',ket:'SHM - Budi S.'}),rect(106.8015,-6.5998,106.8040,-6.6010,{nama:'NIB 10.12.05.01.00456',ket:'HGB - PT Maju'})],
+   hutan:[rect(106.8020,-6.6012,106.8050,-6.6035,{nama:'Hutan Produksi Terbatas (HPT)',ket:'Contoh'}),rect(106.7985,-6.6018,106.8010,-6.6040,{nama:'Hutan Lindung (HL)',ket:'Contoh'})],
+   rtrw:[rect(106.7980,-6.5990,106.8015,-6.6030,{nama:'Kawasan Permukiman',ket:'Contoh'}),rect(106.8015,-6.5990,106.8060,-6.6030,{nama:'Pertanian Pangan (LP2B)',ket:'Contoh'})]};
+  for(const k in D){const t=JSON.stringify({type:'FeatureCollection',features:D[k]});await simpan(k,t,'contoh.geojson')}
+  msg('Data contoh tersimpan. Di halaman peta, klik "Muat bidang contoh".',1);
+});
+render();
+</script>
+<script type="text/javascript" src="https://www.authpro.com/auth/cekoverlay/?action=pp"></script>
+</body>
+</html>

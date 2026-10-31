@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Halaman Tidak Ditemukan</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome untuk Icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f6ff;
+        }
+
+        /* Speed lines background effect */
+        .speed-lines {
+            background: radial-gradient(circle, rgba(235, 243, 255, 0.4) 0%, rgba(224, 236, 255, 0.9) 100%);
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        /* Animation floating & running effect */
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(-1deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.3; transform: scale(0.98); }
+            50% { opacity: 0.6; transform: scale(1.05); }
+        }
+
+        .mascot-container {
+            animation: float 3.5s ease-in-out infinite;
+        }
+
+        .glow-shadow {
+            animation: pulse-glow 3.5s ease-in-out infinite;
+        }
+
+        /* Custom text gradient */
+        .gradient-text {
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 relative overflow-x-hidden">
+
+    <!-- Background decorative speed lines / rays -->
+    <div class="speed-lines pointer-events-none">
+        <svg class="w-full h-full opacity-15" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+            <line x1="50%" y1="50%" x2="0%" y2="0%" stroke="#3b82f6" stroke-width="2" />
+            <line x1="50%" y1="50%" x2="100%" y2="0%" stroke="#3b82f6" stroke-width="2" />
+            <line x1="50%" y1="50%" x2="0%" y2="100%" stroke="#3b82f6" stroke-width="2" />
+            <line x1="50%" y1="50%" x2="100%" y2="100%" stroke="#3b82f6" stroke-width="2" />
+            <line x1="50%" y1="50%" x2="50%" y2="0%" stroke="#3b82f6" stroke-width="1.5" />
+            <line x1="50%" y1="50%" x2="50%" y2="100%" stroke="#3b82f6" stroke-width="1.5" />
+            <line x1="50%" y1="50%" x2="0%" y2="50%" stroke="#3b82f6" stroke-width="1.5" />
+            <line x1="50%" y1="50%" x2="100%" y2="50%" stroke="#3b82f6" stroke-width="1.5" />
+        </svg>
+    </div>
+
+    <!-- Main Container -->
+    <main class="relative z-10 max-w-lg w-full text-center bg-white/70 backdrop-blur-md p-8 md:p-10 rounded-3xl shadow-xl border border-white/60">
+        
+        <!-- Animated 404 Text -->
+        <h1 class="text-7xl md:text-8xl font-black tracking-tight gradient-text mb-2 select-none">
+            404
+        </h1>
+
+        <!-- Mascot Image with Shadow -->
+        <div class="relative my-4 flex flex-col items-center justify-center">
+            <div class="mascot-container relative z-10 w-48 h-48 md:w-56 md:h-56 flex items-center justify-center">
+                <img 
+                    src="maskot.JPG" 
+                    alt="Maskot Petugas Lari" 
+                    class="w-full h-full object-contain rounded-2xl drop-shadow-md"
+                    onerror="this.onerror=null; this.src='https://placehold.co/300x300/e2e8f0/1e293b?text=Maskot+Petugas';"
+                />
+            </div>
+            <!-- Shadow effect under mascot -->
+            <div class="glow-shadow w-32 h-4 bg-blue-300/50 rounded-full filter blur-sm -mt-2"></div>
+        </div>
+
+        <!-- Title & Description -->
+        <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-3">
+            Waduh! Halaman Tidak Ditemukan
+        </h2>
+        <p class="text-gray-600 text-sm md:text-base mb-8 leading-relaxed">
+            Petugas kami sedang berlari cepat mencari halaman yang Anda tuju, tetapi sepertinya alamat tersebut hilang atau telah dipindahkan.
+        </p>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-col sm:flex-row gap-3 justify-center items-center">
+            <a href="/" 
+               class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 transition-all duration-200 hover:-translate-y-0.5">
+                <i class="fa-solid font-sharp fa-house mr-2"></i>
+                Kembali ke Beranda
+            </a>
+            
+            <button onclick="reportIssue()" 
+                    class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 font-semibold rounded-xl border border-gray-200 shadow-sm transition-all duration-200 hover:-translate-y-0.5">
+                <i class="fa-regular fa-flag mr-2 text-gray-500"></i>
+                Laporkan Masalah
+            </button>
+        </div>
+
+        <!-- Notification Toast -->
+        <div id="toast" class="hidden fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-sm py-2.5 px-5 rounded-full shadow-lg z-50 transition-all duration-300">
+            <span id="toast-message">Terima kasih! Laporan Anda telah terkirim.</span>
+        </div>
+
+    </main>
+
+    <!-- Interactive Script -->
+    <script>
+        function reportIssue() {
+            const toast = document.getElementById('toast');
+            toast.classList.remove('hidden');
+            
+            // Auto hide toast after 3 seconds
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
